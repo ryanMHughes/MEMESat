@@ -1,0 +1,61 @@
+% Author:Ryan Hughes
+% Email: rh39658@uga.edu
+% FOR: UGA Small Satellite Research Lab
+% WORKS: Converts orbital elements of MEMESat-1 at point in orbit to 
+% latitude and longitude. 
+
+startTime = datetime(2021,6,10,0,0,0);
+stopTime = startTime + days(7);
+sampleTime = 3; %seconds
+
+% adds the specified datetime range to a new satelliteScenario
+sc = satelliteScenario(startTime,stopTime,sampleTime);
+
+% makes the UGA groundstation for data uplink and downlink from MOCI
+minElevationAngle = 25;
+name = 'Ground_Station';
+UGA = groundStation(sc, lat(84), long(84), ...
+    'Name', name, "MinElevationAngle", minElevationAngle);
+
+lat(84) = [];
+long(84) = [];
+names(84) = [];
+
+gsList = [UGA];
+
+% Parses through the targets giving each of them a name and
+% location, adds them all to a new groundstations row vecor
+for i = 1:length(lat)
+    name = names(i);
+    gs = groundStation(sc,lat(i),long(i), ...
+        'Name', name);
+    gsList = [gsList, gs];
+end
+
+% adding moci satellite into simulation using 97 inclination and 500 km
+% circular orbit
+%semiMajorAxis = 6878000;
+%eccentricity = 0;
+%inclination = 97;
+%rightAscentionOfAscendingNode = 0;
+%argumentOfPeriapsis = 0;
+%trueAnomaly = 0;
+
+% adds a new camera to the stellite with a field of view of 4.8 degrees
+camName = moci.Name + " Camera";
+cam = conicalSensor(moci, "Name" , camName, "MaxViewAngle", 4.8, ...
+    "MountingAngles", [0; 0; 0]);
+
+UGAaccess = access(moci, UGA);
+acs = [UGAaccess];
+
+for i = 1:86 
+     event = access(cam, gsList(i));
+     acs = [acs, event];
+end
+
+intvls = accessIntervals(acs);
+intervals = intvls;
+
+
+toc
