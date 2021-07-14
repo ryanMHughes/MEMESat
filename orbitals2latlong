@@ -1,61 +1,56 @@
+tic
 % Author:Ryan Hughes
 % Email: rh39658@uga.edu
 % FOR: UGA Small Satellite Research Lab
-% WORKS: Converts orbital elements of MEMESat-1 at point in orbit to 
-% latitude and longitude. 
+% WORKS: Returns latitude, longitude, and altitude at the beginning of downlink interval, 
+% when given a set of orbital parameters.   
 
-startTime = datetime(2021,6,10,0,0,0);
+% Defining start, end, timestep
+
+startTime = datetime(2021,7,15,0,0,0);
 stopTime = startTime + days(7);
-sampleTime = 3; %seconds
+sampleTime = 10; %seconds
 
-% adds the specified datetime range to a new satelliteScenario
+% Creating simulation at specified times
+
 sc = satelliteScenario(startTime,stopTime,sampleTime);
 
-% makes the UGA groundstation for data uplink and downlink from MOCI
-minElevationAngle = 25;
+% Creating UGA GS
+
+minElevationAngle = 20; % Degrees above horizon due to hardware limitations
 name = 'Ground_Station';
-UGA = groundStation(sc, lat(84), long(84), ...
-    'Name', name, "MinElevationAngle", minElevationAngle);
+lat = 33.939593;
+long = -83.374889;
+UGA = groundStation(sc, lat, long, 'Name', name, "MinElevationAngle", ...
+    minElevationAngle);
 
-lat(84) = [];
-long(84) = [];
-names(84) = [];
+% Defining orbital parameters and creating MEMESat
 
-gsList = [UGA];
+semiMajorAxis = 6778100; % Meters, per MEMESat Link Budget document
+eccentricity = 0;
+inclination = 51.64;
+rightAscentionOfAscendingNode = 316.77;
+argumentOfPeriapsis = 357.1; %Argument of perigee per MEMESat Link Budget Document
+trueAnomaly = 2.97; %True Anomaly per MEMESat Link Budget Document (assuming same because orbit is circular)
 
-% Parses through the targets giving each of them a name and
-% location, adds them all to a new groundstations row vecor
-for i = 1:length(lat)
-    name = names(i);
-    gs = groundStation(sc,lat(i),long(i), ...
-        'Name', name);
-    gsList = [gsList, gs];
-end
+name = 'MEMESat';
+memeSat = satellite(sc, semiMajorAxis, eccentricity, inclination, ...
+    rightAscentionOfAscendingNode, argumentOfPeriapsis, trueAnomaly, ...
+    'Name', name);
+    
+% Finding downlink intervals
 
-% adding moci satellite into simulation using 97 inclination and 500 km
-% circular orbit
-%semiMajorAxis = 6878000;
-%eccentricity = 0;
-%inclination = 97;
-%rightAscentionOfAscendingNode = 0;
-%argumentOfPeriapsis = 0;
-%trueAnomaly = 0;
+ac = access(memeSat, UGA);
+intervals = accessIntervals(ac)
 
-% adds a new camera to the stellite with a field of view of 4.8 degrees
-camName = moci.Name + " Camera";
-cam = conicalSensor(moci, "Name" , camName, "MaxViewAngle", 4.8, ...
-    "MountingAngles", [0; 0; 0]);
+% Finding lat, long, altitude of MEMESat during a downlink interval\
+time = intervals{1,4};
 
-UGAaccess = access(moci, UGA);
-acs = [UGAaccess];
+[pos] = states(memeSat, time, "CoordinateFrame", "geographic");
 
-for i = 1:86 
-     event = access(cam, gsList(i));
-     acs = [acs, event];
-end
-
-intvls = accessIntervals(acs);
-intervals = intvls;
+lat = pos(1)
+long = pos(2)
+alt = pos(3)
 
 
 toc
